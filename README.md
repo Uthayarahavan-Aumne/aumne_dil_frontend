@@ -1,206 +1,199 @@
-# Welcome to your Lovable project
+# VXML Processing Frontend
 
-## Project info
+A modern React application for VXML (Voice XML) file processing and project management with real-time monitoring capabilities.
 
-**URL**: https://lovable.dev/projects/e6637eef-64dc-4566-8fbb-1b432e1963e8
+## Quick Start
 
-## How can I edit this code?
+### Prerequisites
+- Node.js 18+
+- Backend server running on `http://localhost:8000`
 
-There are several ways of editing your application.
+### Installation
+```bash
+# Install dependencies
+npm install
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/e6637eef-64dc-4566-8fbb-1b432e1963e8) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server  
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Access the application at `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Features
 
-**Use GitHub Codespaces**
+- **Project Management**: Create, edit, and delete VXML processing projects
+- **File Upload**: Drag & drop ZIP file uploads with real-time progress tracking
+- **Status Monitoring**: Dedicated upload status page with automatic polling
+- **Database Health**: Real-time Neo4j database connectivity monitoring
+- **Responsive Design**: Mobile-first UI with modern components
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Technology Stack
 
-## What technologies are used for this project?
+- **React 18.3.1** with TypeScript
+- **Vite** - Fast build tool and development server
+- **shadcn/ui** - Modern component library built on Radix UI
+- **Tailwind CSS** - Utility-first styling
+- **TanStack React Query** - Server state management with caching
+- **React Router DOM** - Client-side routing
 
-This project is built with:
+## Project Structure
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```
+src/
+├── components/
+│   ├── ui/                 # shadcn/ui components (35+ components)
+│   ├── upload/             # Upload-specific components
+│   ├── processing/         # Processing status components
+│   └── [other components]  # Project cards, modals, etc.
+├── hooks/                  # Custom React hooks for API integration
+├── lib/
+│   ├── api.ts             # API client with TypeScript interfaces
+│   ├── config.ts          # Polling and configuration constants
+│   └── utils.ts           # Utility functions
+├── pages/
+│   ├── Index.tsx          # Main dashboard
+│   ├── UploadStatusPage.tsx # Upload status monitoring
+│   └── ProjectList.tsx    # Project management
+└── test/                  # Testing utilities and setup
+```
 
-## How can I deploy this project?
+## Available Scripts
 
-Simply open [Lovable](https://lovable.dev/projects/e6637eef-64dc-4566-8fbb-1b432e1963e8) and click on Share -> Publish.
+```bash
+npm run dev          # Start development server
+npm run build        # Production build
+npm run build:dev    # Development build
+npm run lint         # Run ESLint
+npm run preview      # Preview production build
+npm test             # Run tests with Vitest
+```
 
-## Can I connect a custom domain to my Lovable project?
+## API Integration
 
-Yes, you can!
+### Backend Requirements
+The frontend expects a backend server with these endpoints:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+**Project Management:**
+- `GET /api/v1/projects` - List all projects
+- `POST /api/v1/projects` - Create project
+- `PUT /api/v1/projects/{key}` - Update project
+- `DELETE /api/v1/projects/{key}` - Delete project
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+**File Upload & Processing:**
+- `POST /upload` - Upload VXML files
+- `GET /uploads` - List upload jobs with status
+- `GET /uploads/progress/{project_key}` - Get file processing progress
 
----
+**Health Monitoring:**
+- `GET /api/v1/database/health` - Database health check
+- `GET /api/v1/database/health/summary` - Health summary
+- `GET /health` - Service health check
 
-## Upload Status Refresh Mechanism
+### Authentication
+Currently uses bearer token authentication with `demo_token` for development.
 
-This application features an advanced upload status monitoring system with configurable automatic polling and manual refresh capabilities.
+## Upload Status Monitoring
 
-### Automatic Polling Configuration
+### Automatic Polling
+The application includes intelligent polling for real-time status updates:
 
-The polling behavior is configured in `/src/lib/config.ts`:
+- **Default Interval**: 30 seconds for upload status page
+- **Smart Polling**: 2 seconds when active jobs are processing
+- **Visual Indicators**: "Fast polling active" badge during accelerated polling
+
+### Configuration
+Polling behavior is configured in `src/lib/config.ts`:
 
 ```typescript
 export const POLLING_CONFIG = {
-  // Polling interval when there are active jobs (queued/processing)
-  ACTIVE_POLLING_INTERVAL: 2000, // 2 seconds
-  
-  // Polling interval when all jobs are idle (completed/failed)
-  IDLE_POLLING_INTERVAL: 10000, // 10 seconds
-  
-  // Default polling interval for dedicated status page
-  DEFAULT_POLLING_INTERVAL: 30000, // 30 seconds
-  
-  // Debounce delay for manual refresh button
-  REFRESH_DEBOUNCE_DELAY: 1000, // 1 second
+  ACTIVE_POLLING_INTERVAL: 2000,    // 2 seconds for active jobs
+  DEFAULT_POLLING_INTERVAL: 30000,  // 30 seconds default
+  REFRESH_DEBOUNCE_DELAY: 1000,     // 1 second debounce
 };
 ```
 
-### Polling Behavior
+### Manual Refresh
+- Debounced refresh button prevents duplicate API calls
+- Loading states with spinner and "Refreshing..." text
+- Error recovery with retry buttons
 
-#### Smart Polling Strategy
+## Database Health Monitoring
 
-The system implements an intelligent polling strategy that adapts based on job activity:
+### Simplified Status System
+- **Active**: Database is reachable and working correctly
+- **Error**: Any problem including credentials, network, or database issues
 
-1. **Active Jobs Present**: When uploads with status `queued` or `processing` exist, polling occurs every **2 seconds** for real-time updates
-2. **No Active Jobs**: When all jobs are `completed` or `failed`, polling slows to the configured interval (default **30 seconds**)
-3. **Disabled Auto-refresh**: Polling can be completely disabled by setting `enableAutoRefresh: false`
+### Smart Retry Strategy
+- Automatic retry for connection errors (3 attempts with exponential backoff)
+- One-time checks on component mount and after project edits
+- No continuous polling to optimize performance
 
-#### Upload Status Page (`/uploads`)
+## Development
 
-- **Default Interval**: 30 seconds (configurable)
-- **Fast Polling**: Automatically switches to 2-second intervals when active jobs are detected
-- **Visual Indicator**: Shows "Fast polling active" badge when using accelerated polling
-- **Configuration Panel**: Toggle-able settings panel showing current polling configuration
+### Component Architecture
+- **Component-based** with reusable UI components
+- **Custom hooks** for business logic separation
+- **API layer abstraction** with centralized error handling
+- **Type-first development** with comprehensive TypeScript interfaces
 
-### Manual Refresh Controls
-
-#### Refresh Button Behavior
-
-- **Debounced Requests**: Multiple rapid clicks are debounced to prevent API spam
-- **Loading States**: Button shows spinner and "Refreshing..." text during requests
-- **Disabled During Refresh**: Button is disabled while refresh is in progress
-- **Error Recovery**: Failed refreshes can be retried immediately
-
-### Usage Examples
-
-#### Basic Upload Status Monitoring
-
-```tsx
-import { UploadStatusPage } from '@/pages/UploadStatusPage';
-
-// Full-featured status page with automatic polling
-<UploadStatusPage />
-
-// Project-specific status monitoring
-<UploadStatusPage projectKey="my-project" />
-```
-
-#### Custom Polling Configuration
-
-```tsx
-import { useUploadStatus } from '@/hooks/useUploadStatus';
-
-const MyComponent = () => {
-  const {
-    data: uploads,
-    isRefreshing,
-    refetch,
-    canRefresh
-  } = useUploadStatus({
-    projectKey: "my-project",
-    enableAutoRefresh: true,
-    pollingInterval: 15000 // Custom 15-second interval
-  });
-  
-  return (
-    <div>
-      <button 
-        onClick={refetch} 
-        disabled={!canRefresh}
-      >
-        {isRefreshing ? 'Refreshing...' : 'Refresh'}
-      </button>
-      {/* Upload list UI */}
-    </div>
-  );
-};
-```
+### State Management
+- **TanStack React Query** for server state with intelligent caching
+- **React Hook Form** for form management with Zod validation
+- **Local state** using React hooks
 
 ### Testing
-
-The polling and refresh functionality is comprehensively tested:
+Comprehensive testing setup with Vitest and React Testing Library:
 
 ```bash
-# Run tests
+# Run all tests
 npm test
 
-# Run hook tests specifically
+# Run specific test files
 npm test -- useUploadStatus
-
-# Run page component tests
 npm test -- UploadStatusPage
 ```
 
-#### Test Scenarios Covered
+## Deployment
 
-- ✅ **Automatic polling updates job status**: Verifies status transitions from queued → completed
-- ✅ **Manual refresh button updates statuses**: Tests immediate refresh on button click  
-- ✅ **Fast polling activation**: Confirms 2-second polling with active jobs
-- ✅ **Debounced refresh**: Prevents duplicate requests from rapid clicking
-- ✅ **Error handling**: Tests network failures and retry mechanisms
-- ✅ **Loading states**: Validates user feedback during operations
+### Build Process
+```bash
+# Production build
+npm run build
 
-### Troubleshooting
+# Preview build locally
+npm run preview
+```
+
+### Environment Configuration
+For production deployment:
+1. Update API base URL in `src/lib/api.ts`
+2. Configure authentication tokens
+3. Set up environment variables
+4. Configure CORS on backend
+
+## Troubleshooting
+
+### Common Issues
+
+**Backend Connection**
+- Verify backend is running on port 8000
+- Check CORS configuration
+- Verify API endpoint URLs
 
 **Polling Not Working**
-- Verify backend is running on port 8000
-- Check browser network tab for API call errors
 - Ensure `enableAutoRefresh` is set to `true`
+- Check browser network tab for API call errors
+- Verify authentication token
 
-**Refresh Button Disabled**
-- Wait for current refresh to complete
-- Check for network errors in console
-- Verify API endpoints are accessible
+**Build Issues**
+- Run `npm run lint` to check for errors
+- Clear node_modules and reinstall
+- Check TypeScript configuration
+
+## Further Reading
+
+For detailed development information, component architecture, and advanced features, see the [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md).
+
+## License
+
+This project is part of the VXML processing system for voice menu analysis.

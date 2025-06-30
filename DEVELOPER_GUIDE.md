@@ -142,7 +142,7 @@ examplefrontend/
    ```
 
 4. **Access the application**
-   - Frontend: `http://localhost:5173` (Vite default)
+   - Frontend: `http://localhost:8080` (configured in vite.config.ts)
    - Backend required: `http://localhost:8000`
 
 ### Available Scripts
@@ -153,7 +153,10 @@ examplefrontend/
   "build": "vite build",            # Production build
   "build:dev": "vite build --mode development", # Development build
   "lint": "eslint .",               # Run ESLint
-  "preview": "vite preview"         # Preview production build
+  "preview": "vite preview",        # Preview production build
+  "test": "vitest",                 # Run tests
+  "test:ui": "vitest --ui",         # Run tests with UI
+  "test:run": "vitest run"          # Run tests once
 }
 ```
 
@@ -480,43 +483,57 @@ useQuery({
 
 ### Overview
 
-The application includes a sophisticated database health monitoring system that tracks the connectivity status of Neo4j databases for each project. This system provides real-time feedback on database connectivity with intelligent polling strategies to optimize performance.
+The application includes a **simplified database health monitoring system** that tracks the connectivity status of Neo4j databases for each project. The system uses a **binary status model** with intelligent retry mechanisms to ensure factual information while optimizing performance.
 
-### Health Status Types
+### Simplified Health Status Types
 
-The system tracks four distinct database health states:
+The system uses only **two distinct database health states** for maximum clarity:
 
-1. **`active`** - Database is reachable and credentials are valid
-2. **`inactive`** - Database is unreachable (network/server issues)
-3. **`invalid_credentials`** - Authentication failed (wrong username/password)
-4. **`unknown`** - Initial state or connection test failed
+1. **`active`** - Database is reachable and working correctly
+2. **`error`** - Any problem including wrong credentials, network issues, or database unavailability
 
-### Smart Polling Strategy
+**Key Benefits:**
+- **Clear user experience**: Database either works or it doesn't
+- **Simplified logic**: No confusion between different error types
+- **Performance optimized**: One-time checks with retry mechanisms
 
-#### Intelligent Polling Logic
+### Smart Retry Strategy
 
-The system implements smart polling that adapts based on database status:
+#### Intelligent Retry Logic
+
+The system implements robust retry mechanisms specifically for connection errors to ensure factual data:
 
 ```typescript
-// Smart polling in useProjectDatabaseHealth
-refetchInterval: (query) => {
-  // Stop polling if credentials are invalid - they won't change until user edits them
-  if (query.state.data?.status === 'invalid_credentials') {
-    return false; // No more polling
-  }
-  // Continue polling for other statuses (active, inactive, unknown)
-  return 5000; // 5 seconds for active/inactive states
-}
+// Retry logic in useDatabaseHealth hooks
+// Connection errors are retried up to 3 times with exponential backoff
+const retryDelay = (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000);
+// Retry delays: 2s, 4s, 8s, then 30s maximum
 ```
 
-#### Polling Behavior by Status
+#### Retry Behavior for Connection Issues
 
-| Status | Polling Interval | Rationale |
-|--------|------------------|-----------|
-| `active` | 5 seconds | Monitor for connectivity issues |
-| `inactive` | 5 seconds | Check for database recovery |
-| `unknown` | 5 seconds | Determine actual status |
-| `invalid_credentials` | **STOPPED** | Won't change until user edits credentials |
+| Attempt | Wait Time | Purpose |
+|---------|-----------|---------|
+| Initial | 0s | First check |
+| Retry 1 | 2 seconds | Handle temporary glitches |
+| Retry 2 | 4 seconds | Handle API busy states |
+| Retry 3 | 8 seconds | Final attempt for accuracy |
+| **Result** | - | **Mark as error if still failing** |
+
+**Connection Issues Detected:**
+- Database instance not accessible/unreachable
+- Connection timeouts
+- Network errors
+- API busy/service unavailable
+- Temporary failures
+
+### No Periodic Polling
+
+**Performance-First Approach:**
+- ✅ **One-time checks** on component mount
+- ✅ **Manual checks** after project edits
+- ✅ **No continuous polling** - saves computational resources
+- ✅ **Retry logic** ensures accurate status despite temporary issues
 
 ### Architecture
 
@@ -530,7 +547,7 @@ const { data: allHealth } = useDatabaseHealth();
 **2. `useDatabaseHealthSummary()`** - Dashboard statistics
 ```typescript
 const { data: summary } = useDatabaseHealthSummary();
-// Returns: { total_databases, active_databases, inactive_databases, invalid_credentials, unknown_databases }
+// Returns: { total_databases, active_databases, error_databases }
 ```
 
 **3. `useProjectDatabaseHealth(projectKey)`** - Individual project monitoring
@@ -566,7 +583,7 @@ GET /api/v1/database/health/{project_key}
   "status": "active",
   "response_time_ms": 612.14,
   "error_message": null,
-  "last_checked": "2025-06-29T23:47:24.391021"
+  "last_checked": "2025-06-30T23:47:24.391021"
 }
 ```
 
@@ -580,9 +597,7 @@ GET /api/v1/database/health/summary
 {
   "total_databases": 2,
   "active_databases": 1,
-  "inactive_databases": 0,
-  "invalid_credentials": 1,
-  "unknown_databases": 0
+  "error_databases": 1
 }
 ```
 
@@ -590,19 +605,11 @@ GET /api/v1/database/health/summary
 
 #### Project Cards (`ProjectCard.tsx`)
 
-**Status Badge Display:**
+**Status Badge Display (Simplified):**
 ```typescript
 {dbHealth ? (
   <StatusBadge 
-    status={
-      dbHealth.status === 'active' 
-        ? 'active' 
-        : dbHealth.status === 'inactive' 
-        ? 'inactive' 
-        : dbHealth.status === 'invalid_credentials'
-        ? 'error'
-        : 'error'
-    } 
+    status={dbHealth.status === 'active' ? 'active' : 'error'} 
   />
 ) : (
   <StatusBadge status="loading" />
@@ -614,52 +621,47 @@ GET /api/v1/database/health/summary
 // Pulsing green dot for active databases
 {dbHealth.status === 'active' && <span className="animate-pulse">●</span>}
 
-// Static red circle for inactive
-{dbHealth.status === 'inactive' && '○'}
-
-// Exclamation for invalid credentials  
-{dbHealth.status === 'invalid_credentials' && '!'}
+// Static red circle for any error
+{dbHealth.status === 'error' && '○'}
 ```
 
 #### Dashboard Statistics
 
 The dashboard displays real-time counts:
-- **Total Databases**: All configured projects
-- **Active Databases**: Successfully connected
-- **Invalid Credentials**: Authentication failures
-- **Inactive Databases**: Connection failures
+- **Total Projects**: All configured projects  
+- **Files Processed**: Total files processed across all projects
+- **Active Databases**: Successfully connected databases
+- **Processing Jobs**: Currently processing files across all projects
 
 ### Performance Optimizations
 
-#### 1. Smart Polling Prevention
-- **Invalid credentials** stop polling immediately
-- Saves unnecessary API calls for permanently failed states
-- Resumes polling only when user edits project credentials
+#### 1. No Periodic Polling
+- **One-time checks** only - no continuous API calls
+- **Retry mechanisms** for connection issues ensure accuracy
+- **Manual refresh** when projects are edited
 
 #### 2. React Query Configuration
 ```typescript
-// Aggressive cache invalidation for real-time updates
-staleTime: 1000,        // 1 second stale time
-refetchInterval: 5000,  // 5 second polling
+// Cache configuration for one-time checks
+staleTime: Infinity,    // Never refetch automatically
+refetchInterval: false, // No periodic polling
 ```
 
-#### 3. Retry Strategy with Exponential Backoff
+#### 3. Connection Error Retry with Exponential Backoff
 ```typescript
-retry: (failureCount, error: any) => {
-  // Don't retry on server errors (500+)
-  if (error?.response?.status >= 500) return false;
-  return failureCount < 2;
-},
-retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000)
+// Manual retry logic for connection issues only
+const maxRetries = 3;
+const waitTime = Math.pow(2, retryCount + 1) * 1000; // 2s, 4s, 8s
+
+// Disable React Query retry since we handle it manually
+retry: false
 ```
 
-**Retry Delays:**
-- Retry 1: 1 second
-- Retry 2: 2 seconds  
-- Retry 3: 4 seconds
-- Retry 4: 8 seconds
-- Retry 5: 16 seconds
-- Retry 6+: **30 seconds (maximum)**
+**Retry Delays for Connection Issues:**
+- Retry 1: 2 seconds
+- Retry 2: 4 seconds  
+- Retry 3: 8 seconds
+- **Result**: Mark as error if still failing
 
 ### Integration with Project Management
 
@@ -689,15 +691,12 @@ onSuccess: (_, { key, data }) => {
 
 #### Status Badge Colors and Labels
 - **Active**: Green badge, "Active" text
-- **Inactive**: Red badge, "Inactive" text  
-- **Invalid Credentials**: Orange badge, "Error" text
-- **Loading/Unknown**: Gray badge, "Checking..." text
+- **Error**: Red badge, "Error" text (covers all failure cases)
+- **Loading**: Gray badge, "Checking..." text (during initial check)
 
 #### Visual Indicators
 - **Active databases**: Green pulsing dot (●) with animation
-- **Inactive databases**: Red circle (○)
-- **Invalid credentials**: Orange exclamation mark (!)
-- **Unknown state**: Question mark (?)
+- **Error databases**: Red circle (○) for any type of error
 
 ### Troubleshooting Health Monitoring
 
@@ -708,49 +707,51 @@ onSuccess: (_, { key, data }) => {
 - Verify React Query DevTools for cache status
 - Ensure project keys are correct
 
-**2. Invalid credentials not detected properly**
+**2. Error status not detected properly**
 - Verify backend returns correct status codes
-- Check authentication error handling in API client
+- Check error handling in API client
 - Confirm Neo4j connection string format
 
-**3. Polling not stopping for invalid credentials**
-- Check `refetchInterval` function logic
-- Verify `query.state.data?.status` is accessible
-- Review React Query version compatibility
+**3. Retry mechanism not working**
+- Check connection error detection patterns
+- Verify exponential backoff timing
+- Review manual retry implementation vs React Query retry
 
 #### Development Testing
 
 **Test different database states:**
 ```typescript
-// Test with valid credentials
-const validProject = {
+// Test with working database - should show as 'active'
+const workingProject = {
   db_config: {
     uri: "neo4j+ssc://valid-host.databases.neo4j.io",
     user: "neo4j",
-    password: "correct_password",
+    password: "correct_password", 
     database: "neo4j"
   }
 };
 
-// Test with invalid credentials
-const invalidProject = {
+// Test with wrong credentials - should show as 'error' after categorization
+const wrongCredentialsProject = {
   db_config: {
-    uri: "neo4j+ssc://valid-host.databases.neo4j.io", 
+    uri: "neo4j+ssc://valid-host.databases.neo4j.io",
     user: "neo4j",
     password: "wrong_password",
     database: "neo4j"
   }
 };
 
-// Test with unreachable database
+// Test with unreachable database - should show as 'error' after retries
 const unreachableProject = {
   db_config: {
     uri: "neo4j+ssc://nonexistent.databases.neo4j.io",
-    user: "neo4j", 
+    user: "neo4j",
     password: "any_password",
     database: "neo4j"
   }
 };
+
+// All non-active states become 'error' for simplified user experience
 ```
 
 ### Future Enhancements
@@ -768,7 +769,210 @@ const unreachableProject = {
 - **Circuit breaker pattern** for failing databases
 - **Caching strategy** for frequently checked projects
 
-This sophisticated health monitoring system provides real-time visibility into database connectivity while optimizing performance through intelligent polling strategies.
+This **simplified health monitoring system** provides clear visibility into database connectivity while optimizing performance through **one-time checks with intelligent retry mechanisms** for factual accuracy.
+
+## Upload Status Refresh Mechanism
+
+### Overview
+
+The application features an advanced upload status monitoring system with configurable automatic polling and manual refresh capabilities implemented in the `/uploads` page.
+
+### Automatic Polling Configuration
+
+The polling behavior is configured in `/src/lib/config.ts`:
+
+```typescript
+export const POLLING_CONFIG = {
+  // Polling interval when there are active jobs (queued/processing)
+  ACTIVE_POLLING_INTERVAL: 2000, // 2 seconds
+  
+  // Polling interval when all jobs are idle (completed/failed)
+  IDLE_POLLING_INTERVAL: 10000, // 10 seconds
+  
+  // Default polling interval for dedicated status page
+  DEFAULT_POLLING_INTERVAL: 30000, // 30 seconds
+  
+  // Debounce delay for manual refresh button
+  REFRESH_DEBOUNCE_DELAY: 1000, // 1 second
+};
+
+export const STATUS_PAGE_CONFIG = {
+  // Auto-refresh polling interval (configurable as per requirements)
+  AUTO_REFRESH_INTERVAL: POLLING_CONFIG.DEFAULT_POLLING_INTERVAL,
+  
+  // Enable/disable auto-refresh
+  AUTO_REFRESH_ENABLED: true,
+  
+  // Maximum number of retries for failed requests
+  MAX_RETRY_ATTEMPTS: 3,
+};
+```
+
+### Smart Polling Strategy
+
+The system implements an intelligent polling strategy that adapts based on job activity:
+
+1. **Active Jobs Present**: When uploads with status `queued` or `processing` exist, polling occurs every **2 seconds** for real-time updates
+2. **No Active Jobs**: When all jobs are `completed` or `failed`, polling slows to the configured interval (default **30 seconds**)
+3. **Disabled Auto-refresh**: Polling can be completely disabled by setting `enableAutoRefresh: false`
+
+### Upload Status Page (`/uploads`)
+
+- **Default Interval**: 30 seconds (configurable)
+- **Fast Polling**: Automatically switches to 2-second intervals when active jobs are detected
+- **Visual Indicator**: Shows "Fast polling active" badge when using accelerated polling
+- **Configuration Panel**: Toggle-able settings panel showing current polling configuration
+
+### Enhanced Hook Implementation
+
+#### `useUploadStatus` Hook (`/src/hooks/useUploadStatus.ts`)
+
+```typescript
+const {
+  data: uploads,
+  isLoading,
+  error,
+  isRefreshing,
+  refetch,
+  canRefresh
+} = useUploadStatus({
+  projectKey: "optional-filter",
+  enableAutoRefresh: true,
+  pollingInterval: 30000
+});
+```
+
+**Features:**
+- **Smart Polling**: Adapts interval based on active job detection
+- **Manual Refresh**: Debounced refresh with loading states
+- **Project Filtering**: Optional filtering by project key
+- **Error Handling**: Comprehensive error recovery with retry mechanisms
+
+### Manual Refresh Controls
+
+#### Refresh Button Behavior
+
+- **Debounced Requests**: Multiple rapid clicks are debounced to prevent API spam
+- **Loading States**: Button shows spinner and "Refreshing..." text during requests
+- **Disabled During Refresh**: Button is disabled while refresh is in progress
+- **Error Recovery**: Failed refreshes can be retried immediately
+
+#### Implementation Features
+
+```typescript
+// Debounced manual refresh function
+const refetch = useCallback(async () => {
+  if (isRefreshing) return; // Prevent duplicate calls
+  
+  setIsRefreshing(true);
+  try {
+    await queryRefetch();
+  } finally {
+    // Minimum loading state duration for UX
+    setTimeout(() => setIsRefreshing(false), REFRESH_DEBOUNCE_DELAY);
+  }
+}, [isRefreshing, queryRefetch]);
+```
+
+### Component Integration
+
+#### UploadStatusPage Component (`/src/pages/UploadStatusPage.tsx`)
+
+**Key Features:**
+- **Statistics Dashboard**: Real-time counts (total, completed, active, failed)
+- **Search & Filtering**: Filter by filename and status
+- **Expandable Details**: Collapsible timeline views for each upload
+- **Configuration Panel**: Shows polling settings and intervals
+- **Error States**: Clear error messages with retry buttons
+
+**Usage:**
+```typescript
+// Full-featured status page
+<UploadStatusPage />
+
+// Project-specific monitoring
+<UploadStatusPage projectKey="my-project" />
+```
+
+### Backward Compatibility
+
+The implementation maintains backward compatibility with existing components:
+
+#### Legacy Hooks Still Available
+
+```typescript
+// Original hooks still work for existing components
+const { data: uploads } = useProcessingStatus(projectKey);
+const { data: history } = useProcessingHistory(projectKey);
+```
+
+These hooks continue to work with the original smart polling logic (2s active, 10s idle).
+
+### Testing Framework
+
+#### Comprehensive Test Coverage
+
+**Unit Tests** (`/src/hooks/__tests__/useUploadStatus.test.ts`):
+- Automatic polling behavior verification
+- Manual refresh debouncing
+- Loading state management
+- Error handling and retry logic
+- Project filtering functionality
+
+**Integration Tests** (`/src/pages/__tests__/UploadStatusPage.test.tsx`):
+- Full component interaction testing
+- Status transition scenarios
+- User interaction flows
+- Error state handling
+
+**Test Scenarios Covered:**
+- ✅ Automatic polling updates job status (queued → completed)
+- ✅ Manual refresh button updates statuses
+- ✅ Fast polling activation with active jobs
+- ✅ Debounced refresh prevents duplicate requests
+- ✅ Error handling and retry mechanisms
+- ✅ Loading states and user feedback
+
+### Configuration and Customization
+
+#### Configurable Polling Intervals
+
+```typescript
+// Custom polling for specific use cases
+const { data } = useUploadStatus({
+  pollingInterval: 15000, // Custom 15-second interval
+  enableAutoRefresh: true,
+  projectKey: "specific-project"
+});
+```
+
+#### Environment-Based Configuration
+
+For different environments, update the configuration constants:
+
+```typescript
+// Production: Slower polling to reduce server load
+DEFAULT_POLLING_INTERVAL: 60000, // 1 minute
+
+// Development: Faster polling for testing
+DEFAULT_POLLING_INTERVAL: 10000, // 10 seconds
+```
+
+### Performance Considerations
+
+#### Optimization Strategies
+
+- **Smart Polling**: Reduces server load by slowing polling when no active jobs
+- **Request Debouncing**: Prevents excessive API calls from rapid user interactions
+- **React Query Caching**: Efficient data caching and background updates
+- **Component Memoization**: Optimized re-rendering for large upload lists
+
+#### Monitoring and Debugging
+
+- Status page shows current polling interval
+- "Fast polling active" badge when accelerated
+- Configuration panel displays all timing settings
+- Network request activity visible in browser dev tools
 
 ### Progress Tracking System
 
