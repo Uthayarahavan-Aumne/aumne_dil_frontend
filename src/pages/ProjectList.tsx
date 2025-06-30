@@ -4,6 +4,7 @@ import { Navbar } from '@/components/Navbar';
 import { ProjectManagementModal } from '@/components/ProjectManagementModal';
 import { DeleteProjectDialog } from '@/components/DeleteProjectDialog';
 import { UploadModal } from '@/components/UploadModal';
+import { FileProcessingModal } from '@/components/FileProcessingModal';
 import { StatusBadge } from '@/components/ui/status-badge';
 import {
   Table,
@@ -19,7 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useProjects } from '@/hooks/useProjects';
 import { useProjectDatabaseHealth, useRefreshDatabaseHealth } from '@/hooks/useDatabaseHealth';
 import { Project } from '@/lib/api';
-import { Search, Edit, Trash2, Upload, Plus, FolderOpen } from 'lucide-react';
+import { Search, Edit, Trash2, Upload, Plus, FolderOpen, FileText } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
 
 // Individual project row component to handle database health
@@ -27,12 +28,14 @@ const ProjectTableRow = ({
   project, 
   onEdit, 
   onDelete, 
-  onUpload 
+  onUpload,
+  onViewFiles
 }: { 
   project: Project; 
   onEdit: (project: Project) => void;
   onDelete: (project: Project) => void;
   onUpload: (project: Project) => void;
+  onViewFiles: (project: Project) => void;
 }) => {
   const { data: dbHealth } = useProjectDatabaseHealth(project.key);
 
@@ -70,6 +73,14 @@ const ProjectTableRow = ({
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onViewFiles(project)}
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            View Files
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -117,6 +128,7 @@ const ProjectList = () => {
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [deleteProject, setDeleteProject] = useState<Project | null>(null);
   const [uploadProject, setUploadProject] = useState<Project | null>(null);
+  const [viewFilesProject, setViewFilesProject] = useState<Project | null>(null);
 
   const filteredProjects = projects?.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -239,6 +251,7 @@ const ProjectList = () => {
                     onEdit={setEditProject}
                     onDelete={setDeleteProject}
                     onUpload={setUploadProject}
+                    onViewFiles={setViewFilesProject}
                   />
                 ))
               )}
@@ -271,6 +284,13 @@ const ProjectList = () => {
         isOpen={!!uploadProject}
         onClose={() => setUploadProject(null)}
         projectKey={uploadProject?.key}
+      />
+
+      <FileProcessingModal
+        isOpen={!!viewFilesProject}
+        onClose={() => setViewFilesProject(null)}
+        projectKey={viewFilesProject?.key || ''}
+        projectName={viewFilesProject?.name || ''}
       />
     </div>
   );

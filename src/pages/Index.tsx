@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProjects } from '@/hooks/useProjects';
-import { useUploads } from '@/hooks/useUpload';
 import { useAggregatedFileProgress } from '@/hooks/useFileProgress';
 import { useDatabaseHealthSummary, useRefreshDatabaseHealth } from '@/hooks/useDatabaseHealth';
 import { Project } from '@/lib/api';
@@ -29,7 +28,6 @@ import { Link } from 'react-router-dom';
 
 const Index = () => {
   const { data: projects, isLoading: projectsLoading, error: projectsError } = useProjects();
-  const { data: uploads } = useUploads();
   const { data: aggregatedProgress } = useAggregatedFileProgress();
   const { data: databaseHealthSummary } = useDatabaseHealthSummary();
   const { triggerBatchHealthCheck } = useRefreshDatabaseHealth();
@@ -70,7 +68,6 @@ const Index = () => {
   const processedFiles = aggregatedProgress?.totalProcessedFiles || 0;
   const processingJobs = aggregatedProgress?.totalProcessingFiles || 0;
   const activeDatabases = databaseHealthSummary?.active_databases || 0;
-  const errorDatabases = databaseHealthSummary?.error_databases || 0;
 
   const stats = [
     {
@@ -195,12 +192,6 @@ const Index = () => {
                 </Button>
               </Link>
               
-              <Link to="/uploads">
-                <Button variant="outline" size="sm">
-                  <Activity className="h-4 w-4 mr-2" />
-                  Upload Status
-                </Button>
-              </Link>
               
               <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1">
                 <Button

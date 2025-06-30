@@ -82,9 +82,11 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
           <div className="py-2">
             <ProgressBar 
               percentage={progress.progress_percentage}
-              isProcessing={progress.processing_files > 0 || progress.pending_files > 0}
+              isProcessing={progress.processing_files > 0}
               failedFiles={progress.failed_files}
               totalFiles={progress.total_files}
+              databaseStatus={dbHealth?.status}
+              pendingFiles={progress.pending_files}
             />
           </div>
         )}

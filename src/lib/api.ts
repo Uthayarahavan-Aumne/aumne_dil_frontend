@@ -166,6 +166,11 @@ class ApiClient {
   async getProjectDatabaseHealth(projectKey: string): Promise<DatabaseHealth> {
     return this.request<DatabaseHealth>(`/api/v1/database/health/${projectKey}`);
   }
+
+  // Generic method for GET requests
+  async get<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint);
+  }
 }
 
 export const apiClient = new ApiClient();

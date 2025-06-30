@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import React, { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { apiClient, UploadJob } from '@/lib/api';
 import { POLLING_CONFIG, STATUS_PAGE_CONFIG } from '@/lib/config';
 
