@@ -195,6 +195,13 @@ const Index = () => {
                 </Button>
               </Link>
               
+              <Link to="/uploads">
+                <Button variant="outline" size="sm">
+                  <Activity className="h-4 w-4 mr-2" />
+                  Upload Status
+                </Button>
+              </Link>
+              
               <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'ghost'}
