@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProjects } from '@/hooks/useProjects';
 import { useUploads } from '@/hooks/useUpload';
+import { useAggregatedFileProgress } from '@/hooks/useFileProgress';
+import { useDatabaseHealthSummary, useRefreshDatabaseHealth } from '@/hooks/useDatabaseHealth';
 import { Project } from '@/lib/api';
 import { 
   FolderOpen, 
@@ -28,8 +30,19 @@ import { Link } from 'react-router-dom';
 const Index = () => {
   const { data: projects, isLoading: projectsLoading, error: projectsError } = useProjects();
   const { data: uploads } = useUploads();
+  const { data: aggregatedProgress } = useAggregatedFileProgress();
+  const { data: databaseHealthSummary } = useDatabaseHealthSummary();
+  const { triggerBatchHealthCheck } = useRefreshDatabaseHealth();
+  
+  // Trigger initial health check when projects are loaded
+  React.useEffect(() => {
+    if (projects && projects.length > 0) {
+      triggerBatchHealthCheck();
+    }
+  }, [projects, triggerBatchHealthCheck]);
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [manageProject, setManageProject] = useState<Project | null>(null);
   const [uploadProject, setUploadProject] = useState<Project | null>(null);
   const [deleteProject, setDeleteProject] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,9 +52,9 @@ const Index = () => {
     setUploadProject(project);
   };
 
-  const handleManage = (projectKey: string) => {
-    // Navigate to project management page - for now just log
-    console.log('Managing project:', projectKey);
+  const handleManage = (project: Project) => {
+    console.log('Managing project:', project.key);
+    setManageProject(project);
   };
 
   const handleDelete = (project: Project) => {
@@ -54,9 +67,10 @@ const Index = () => {
 
   // Calculate stats
   const totalProjects = projects?.length || 0;
-  const totalUploads = uploads?.length || 0;
-  const processingJobs = uploads?.filter(upload => upload.status === 'processing').length || 0;
-  const activeDatabases = projects?.length || 0; // Each project has its own database
+  const processedFiles = aggregatedProgress?.totalProcessedFiles || 0;
+  const processingJobs = aggregatedProgress?.totalProcessingFiles || 0;
+  const activeDatabases = databaseHealthSummary?.active_databases || 0;
+  const errorDatabases = databaseHealthSummary?.error_databases || 0;
 
   const stats = [
     {
@@ -68,7 +82,7 @@ const Index = () => {
     },
     {
       title: 'Files Processed',
-      value: totalUploads,
+      value: processedFiles,
       icon: Upload,
       iconColor: 'text-green-600',
       bgColor: 'bg-green-100'
@@ -77,8 +91,8 @@ const Index = () => {
       title: 'Active Databases',
       value: activeDatabases,
       icon: Database,
-      iconColor: 'text-purple-600',
-      bgColor: 'bg-purple-100'
+      iconColor: 'text-green-600',
+      bgColor: 'bg-green-100'
     },
     {
       title: 'Processing Jobs',
@@ -215,7 +229,7 @@ const Index = () => {
                 key={project.key}
                 project={project}
                 onUpload={() => handleUpload(project)}
-                onManage={() => handleManage(project.key)}
+                onManage={() => handleManage(project)}
                 onDelete={() => handleDelete(project)}
               />
             ))}
@@ -247,6 +261,13 @@ const Index = () => {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         mode="create"
+      />
+
+      <ProjectManagementModal
+        isOpen={!!manageProject}
+        onClose={() => setManageProject(null)}
+        project={manageProject}
+        mode="edit"
       />
 
       <UploadModal

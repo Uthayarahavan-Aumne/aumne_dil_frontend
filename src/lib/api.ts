@@ -43,6 +43,25 @@ export interface CreateProjectData {
   };
 }
 
+export type DatabaseStatus = 'active' | 'error' | 'checking';
+
+export interface DatabaseHealth {
+  project_key: string;
+  project_name: string;
+  database_uri: string;
+  status: DatabaseStatus;
+  response_time_ms?: number;
+  error_message?: string;
+  last_checked: string;
+}
+
+export interface DatabaseHealthSummary {
+  total_databases: number;
+  active_databases: number;
+  error_databases: number;
+  checking_databases: number;
+}
+
 class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
@@ -133,6 +152,19 @@ class ApiClient {
   // Health check
   async healthCheck(): Promise<{ status: string }> {
     return this.request<{ status: string }>('/health');
+  }
+
+  // Database health endpoints
+  async getDatabaseHealth(): Promise<DatabaseHealth[]> {
+    return this.request<DatabaseHealth[]>('/api/v1/database/health');
+  }
+
+  async getDatabaseHealthSummary(): Promise<DatabaseHealthSummary> {
+    return this.request<DatabaseHealthSummary>('/api/v1/database/health/summary');
+  }
+
+  async getProjectDatabaseHealth(projectKey: string): Promise<DatabaseHealth> {
+    return this.request<DatabaseHealth>(`/api/v1/database/health/${projectKey}`);
   }
 }
 

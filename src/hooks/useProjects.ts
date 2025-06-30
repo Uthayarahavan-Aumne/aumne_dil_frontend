@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, Project, CreateProjectData } from '@/lib/api';
 import { toast } from 'sonner';
+import { useRefreshDatabaseHealth } from './useDatabaseHealth';
 
 export const useProjects = () => {
   return useQuery({
@@ -37,13 +38,20 @@ export const useCreateProject = () => {
 
 export const useUpdateProject = () => {
   const queryClient = useQueryClient();
+  const { refreshProjectHealth } = useRefreshDatabaseHealth();
 
   return useMutation({
     mutationFn: ({ key, data }: { key: string; data: Partial<CreateProjectData> }) =>
       apiClient.updateProject(key, data),
-    onSuccess: (_, { key }) => {
+    onSuccess: (_, { key, data }) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project', key] });
+      
+      // If database config was updated, refresh health check to restart polling
+      if (data.db_config) {
+        refreshProjectHealth(key);
+      }
+      
       toast.success('Project updated successfully');
     },
     onError: (error) => {

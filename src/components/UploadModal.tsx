@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,6 +30,15 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, proje
   const { data: projects } = useProjects();
   const { stages, currentStage, fileProgress } = useUploadProgress(currentUploadJob, selectedProjectKey);
 
+  // Update selectedProjectKey when projectKey prop changes
+  useEffect(() => {
+    console.log('UploadModal projectKey prop:', projectKey);
+    if (projectKey) {
+      setSelectedProjectKey(projectKey);
+      console.log('Set selectedProjectKey to:', projectKey);
+    }
+  }, [projectKey]);
+
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -53,18 +62,22 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, proje
     setDragActive(false);
     
     const files = Array.from(e.dataTransfer.files);
+    console.log('Dropped files:', files.map(f => ({ name: f.name, size: f.size, type: f.type })));
     const validFiles = files.filter(file => 
       file.name.endsWith('.vxml') || file.name.endsWith('.zip')
     );
+    console.log('Valid files after filtering:', validFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
     setSelectedFiles(validFiles);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
+      console.log('Selected files:', files.map(f => ({ name: f.name, size: f.size, type: f.type })));
       const validFiles = files.filter(file => 
         file.name.endsWith('.vxml') || file.name.endsWith('.zip')
       );
+      console.log('Valid files after filtering:', validFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
       setSelectedFiles(validFiles);
     }
   };
@@ -219,7 +232,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, proje
                       <File className="h-4 w-4 text-blue-600" />
                       <span className="text-sm text-gray-700 flex-1">{file.name}</span>
                       <span className="text-xs text-gray-500">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                        {file.size < 1024 * 1024 
+                          ? `${(file.size / 1024).toFixed(1)} KB`
+                          : `${(file.size / 1024 / 1024).toFixed(2)} MB`
+                        }
                       </span>
                       <Button
                         variant="ghost"
@@ -244,11 +260,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, proje
               Cancel
             </Button>
             <Button 
-              onClick={handleUpload} 
+              onClick={() => {
+                console.log('Upload button clicked. Project key:', selectedProjectKey, 'Files count:', selectedFiles.length);
+                handleUpload();
+              }} 
               className="flex-1 bg-blue-600 hover:bg-blue-700"
               disabled={!selectedProjectKey || selectedFiles.length === 0}
             >
-              Upload
+              Upload {selectedFiles.length > 0 && `(${selectedFiles.length})`}
             </Button>
           </div>
         )}

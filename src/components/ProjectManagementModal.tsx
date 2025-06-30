@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCreateProject, useUpdateProject } from '@/hooks/useProjects';
+import { useRefreshDatabaseHealth } from '@/hooks/useDatabaseHealth';
 import { Project, CreateProjectData } from '@/lib/api';
 
 interface ProjectManagementModalProps {
@@ -38,6 +39,7 @@ export const ProjectManagementModal = ({
 
   const createMutation = useCreateProject();
   const updateMutation = useUpdateProject();
+  const { refreshProjectHealth } = useRefreshDatabaseHealth();
 
   useEffect(() => {
     if (mode === 'edit' && project) {
@@ -63,12 +65,16 @@ export const ProjectManagementModal = ({
     
     try {
       if (mode === 'create') {
-        await createMutation.mutateAsync(formData);
+        const newProject = await createMutation.mutateAsync(formData);
+        // Trigger health check for newly created project
+        setTimeout(() => refreshProjectHealth(newProject.key), 500);
       } else if (mode === 'edit' && project) {
         await updateMutation.mutateAsync({
           key: project.key,
           data: formData,
         });
+        // Trigger health check for updated project (credentials may have changed)
+        setTimeout(() => refreshProjectHealth(project.key), 500);
       }
       onClose();
     } catch (error) {

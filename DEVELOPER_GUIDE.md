@@ -12,11 +12,12 @@
 9. [Routing](#routing)
 10. [API Integration](#api-integration)
 11. [Real-time Features](#real-time-features)
-12. [Error Handling](#error-handling)
-13. [Styling & UI](#styling--ui)
-14. [Development Workflow](#development-workflow)
-15. [Deployment](#deployment)
-16. [Troubleshooting](#troubleshooting)
+12. [Database Health Monitoring](#database-health-monitoring)
+13. [Error Handling](#error-handling)
+14. [Styling & UI](#styling--ui)
+15. [Development Workflow](#development-workflow)
+16. [Deployment](#deployment)
+17. [Troubleshooting](#troubleshooting)
 
 ## Project Overview
 
@@ -474,6 +475,392 @@ useQuery({
 3. Extracting (40-60%)
 4. Building (60-80%)
 5. Generating (80-100%)
+
+## Database Health Monitoring
+
+### Overview
+
+The application includes a sophisticated database health monitoring system that tracks the connectivity status of Neo4j databases for each project. This system provides real-time feedback on database connectivity with intelligent polling strategies to optimize performance.
+
+### Health Status Types
+
+The system tracks four distinct database health states:
+
+1. **`active`** - Database is reachable and credentials are valid
+2. **`inactive`** - Database is unreachable (network/server issues)
+3. **`invalid_credentials`** - Authentication failed (wrong username/password)
+4. **`unknown`** - Initial state or connection test failed
+
+### Smart Polling Strategy
+
+#### Intelligent Polling Logic
+
+The system implements smart polling that adapts based on database status:
+
+```typescript
+// Smart polling in useProjectDatabaseHealth
+refetchInterval: (query) => {
+  // Stop polling if credentials are invalid - they won't change until user edits them
+  if (query.state.data?.status === 'invalid_credentials') {
+    return false; // No more polling
+  }
+  // Continue polling for other statuses (active, inactive, unknown)
+  return 5000; // 5 seconds for active/inactive states
+}
+```
+
+#### Polling Behavior by Status
+
+| Status | Polling Interval | Rationale |
+|--------|------------------|-----------|
+| `active` | 5 seconds | Monitor for connectivity issues |
+| `inactive` | 5 seconds | Check for database recovery |
+| `unknown` | 5 seconds | Determine actual status |
+| `invalid_credentials` | **STOPPED** | Won't change until user edits credentials |
+
+### Architecture
+
+#### Core Hooks (`/src/hooks/useDatabaseHealth.ts`)
+
+**1. `useDatabaseHealth()`** - General health monitoring
+```typescript
+const { data: allHealth } = useDatabaseHealth();
+```
+
+**2. `useDatabaseHealthSummary()`** - Dashboard statistics
+```typescript
+const { data: summary } = useDatabaseHealthSummary();
+// Returns: { total_databases, active_databases, inactive_databases, invalid_credentials, unknown_databases }
+```
+
+**3. `useProjectDatabaseHealth(projectKey)`** - Individual project monitoring
+```typescript
+const { data: dbHealth } = useProjectDatabaseHealth(project.key);
+// Returns: { project_key, status, response_time_ms, error_message, last_checked }
+```
+
+**4. `useRefreshDatabaseHealth()`** - Manual refresh controls
+```typescript
+const { refreshProjectHealth, refreshAllHealth } = useRefreshDatabaseHealth();
+
+// Refresh specific project (triggers when credentials updated)
+refreshProjectHealth(projectKey);
+
+// Refresh all health data
+refreshAllHealth();
+```
+
+### Backend API Integration
+
+#### Individual Project Health
+```
+GET /api/v1/database/health/{project_key}
+```
+
+**Response Example:**
+```json
+{
+  "project_key": "1331d407-6c00-4c19-9081-26de69cc3726",
+  "project_name": "restaurant_project",
+  "database_uri": "neo4j+ssc://a723a5fb.databases.neo4j.io",
+  "status": "active",
+  "response_time_ms": 612.14,
+  "error_message": null,
+  "last_checked": "2025-06-29T23:47:24.391021"
+}
+```
+
+#### Health Summary
+```
+GET /api/v1/database/health/summary
+```
+
+**Response Example:**
+```json
+{
+  "total_databases": 2,
+  "active_databases": 1,
+  "inactive_databases": 0,
+  "invalid_credentials": 1,
+  "unknown_databases": 0
+}
+```
+
+### UI Components Integration
+
+#### Project Cards (`ProjectCard.tsx`)
+
+**Status Badge Display:**
+```typescript
+{dbHealth ? (
+  <StatusBadge 
+    status={
+      dbHealth.status === 'active' 
+        ? 'active' 
+        : dbHealth.status === 'inactive' 
+        ? 'inactive' 
+        : dbHealth.status === 'invalid_credentials'
+        ? 'error'
+        : 'error'
+    } 
+  />
+) : (
+  <StatusBadge status="loading" />
+)}
+```
+
+**Database Status Indicators:**
+```typescript
+// Pulsing green dot for active databases
+{dbHealth.status === 'active' && <span className="animate-pulse">●</span>}
+
+// Static red circle for inactive
+{dbHealth.status === 'inactive' && '○'}
+
+// Exclamation for invalid credentials  
+{dbHealth.status === 'invalid_credentials' && '!'}
+```
+
+#### Dashboard Statistics
+
+The dashboard displays real-time counts:
+- **Total Databases**: All configured projects
+- **Active Databases**: Successfully connected
+- **Invalid Credentials**: Authentication failures
+- **Inactive Databases**: Connection failures
+
+### Performance Optimizations
+
+#### 1. Smart Polling Prevention
+- **Invalid credentials** stop polling immediately
+- Saves unnecessary API calls for permanently failed states
+- Resumes polling only when user edits project credentials
+
+#### 2. React Query Configuration
+```typescript
+// Aggressive cache invalidation for real-time updates
+staleTime: 1000,        // 1 second stale time
+refetchInterval: 5000,  // 5 second polling
+```
+
+#### 3. Retry Strategy with Exponential Backoff
+```typescript
+retry: (failureCount, error: any) => {
+  // Don't retry on server errors (500+)
+  if (error?.response?.status >= 500) return false;
+  return failureCount < 2;
+},
+retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000)
+```
+
+**Retry Delays:**
+- Retry 1: 1 second
+- Retry 2: 2 seconds  
+- Retry 3: 4 seconds
+- Retry 4: 8 seconds
+- Retry 5: 16 seconds
+- Retry 6+: **30 seconds (maximum)**
+
+### Integration with Project Management
+
+#### Automatic Health Refresh on Project Updates
+
+When a user updates project credentials, the system automatically refreshes health checks:
+
+```typescript
+// In useUpdateProject hook
+const { refreshProjectHealth } = useRefreshDatabaseHealth();
+
+onSuccess: (_, { key, data }) => {
+  // Standard cache invalidation
+  queryClient.invalidateQueries({ queryKey: ['projects'] });
+  queryClient.invalidateQueries({ queryKey: ['project', key] });
+  
+  // If database config was updated, refresh health check to restart polling
+  if (data.db_config) {
+    refreshProjectHealth(key);
+  }
+  
+  toast.success('Project updated successfully');
+}
+```
+
+### Error Handling and User Feedback
+
+#### Status Badge Colors and Labels
+- **Active**: Green badge, "Active" text
+- **Inactive**: Red badge, "Inactive" text  
+- **Invalid Credentials**: Orange badge, "Error" text
+- **Loading/Unknown**: Gray badge, "Checking..." text
+
+#### Visual Indicators
+- **Active databases**: Green pulsing dot (●) with animation
+- **Inactive databases**: Red circle (○)
+- **Invalid credentials**: Orange exclamation mark (!)
+- **Unknown state**: Question mark (?)
+
+### Troubleshooting Health Monitoring
+
+#### Common Issues
+
+**1. Health checks not updating**
+- Check backend API endpoints are accessible
+- Verify React Query DevTools for cache status
+- Ensure project keys are correct
+
+**2. Invalid credentials not detected properly**
+- Verify backend returns correct status codes
+- Check authentication error handling in API client
+- Confirm Neo4j connection string format
+
+**3. Polling not stopping for invalid credentials**
+- Check `refetchInterval` function logic
+- Verify `query.state.data?.status` is accessible
+- Review React Query version compatibility
+
+#### Development Testing
+
+**Test different database states:**
+```typescript
+// Test with valid credentials
+const validProject = {
+  db_config: {
+    uri: "neo4j+ssc://valid-host.databases.neo4j.io",
+    user: "neo4j",
+    password: "correct_password",
+    database: "neo4j"
+  }
+};
+
+// Test with invalid credentials
+const invalidProject = {
+  db_config: {
+    uri: "neo4j+ssc://valid-host.databases.neo4j.io", 
+    user: "neo4j",
+    password: "wrong_password",
+    database: "neo4j"
+  }
+};
+
+// Test with unreachable database
+const unreachableProject = {
+  db_config: {
+    uri: "neo4j+ssc://nonexistent.databases.neo4j.io",
+    user: "neo4j", 
+    password: "any_password",
+    database: "neo4j"
+  }
+};
+```
+
+### Future Enhancements
+
+#### Planned Improvements
+1. **WebSocket integration** for real-time status updates
+2. **Health history tracking** with charts
+3. **Configurable polling intervals** per project
+4. **Email/Slack notifications** for status changes
+5. **Bulk health check operations**
+
+#### Performance Considerations
+- **Connection pooling** on backend for health checks
+- **Rate limiting** to prevent API overload
+- **Circuit breaker pattern** for failing databases
+- **Caching strategy** for frequently checked projects
+
+This sophisticated health monitoring system provides real-time visibility into database connectivity while optimizing performance through intelligent polling strategies.
+
+### Progress Tracking System
+
+The application includes a comprehensive progress tracking system for VXML file processing that provides real-time feedback on processing status with visual progress indicators.
+
+#### Core Hook (`/src/hooks/useProjectProgress.ts`)
+
+**`useProjectProgress(projectKey)`** - Project-level progress monitoring
+```typescript
+const { data: progress } = useProjectProgress(project.key);
+// Returns: { project_key, total_files, processed_files, failed_files, pending_files, processing_files, progress_percentage }
+```
+
+#### Backend Integration
+
+**File Progress Endpoint:**
+```
+GET /uploads/progress/{project_key}
+```
+
+**Response Example:**
+```json
+{
+  "project_key": "1331d407-6c00-4c19-9081-26de69cc3726",
+  "total_files": 10,
+  "processed_files": 7,
+  "failed_files": 1,
+  "pending_files": 1,
+  "processing_files": 1,
+  "progress_percentage": 70.0
+}
+```
+
+#### Visual Components (`/src/components/ui/progress-bar.tsx`)
+
+**ProgressBar Component:**
+```typescript
+<ProgressBar 
+  percentage={progress.progress_percentage}
+  isProcessing={progress.processing_files > 0 || progress.pending_files > 0}
+/>
+```
+
+**Features:**
+- **Pulsing animation** during active processing
+- **Color-coded status**: Blue (processing), Green (complete)
+- **Percentage display** with status text
+- **Responsive design** with smooth transitions
+
+#### Integration with Project Cards
+
+Progress bars automatically appear on project cards when files are present:
+
+```typescript
+{progress && progress.total_files > 0 && (
+  <div className="py-2">
+    <ProgressBar 
+      percentage={progress.progress_percentage}
+      isProcessing={progress.processing_files > 0 || progress.pending_files > 0}
+    />
+  </div>
+)}
+```
+
+#### Polling Configuration
+
+**Smart Progress Polling:**
+- **5-second intervals** for real-time updates
+- **Automatic polling** for all projects
+- **Optimized caching** with React Query
+
+```typescript
+// In useProjectProgress hook
+return useQuery({
+  queryKey: ['project-progress', projectKey],
+  queryFn: () => apiClient.getFileProgress(projectKey),
+  refetchInterval: 5000, // Refresh every 5 seconds
+  enabled: !!projectKey,
+});
+```
+
+#### Retry Strategy
+
+**Exponential Backoff:**
+```typescript
+retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000)
+```
+
+**30-second Maximum Retry Delay:**
+- Prevents excessive API calls during extended failures
+- Balances responsiveness with resource efficiency
+- Allows recovery from temporary network issues
 
 ## Error Handling
 

@@ -17,12 +17,101 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProjects } from '@/hooks/useProjects';
+import { useProjectDatabaseHealth, useRefreshDatabaseHealth } from '@/hooks/useDatabaseHealth';
 import { Project } from '@/lib/api';
 import { Search, Edit, Trash2, Upload, Plus, FolderOpen } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
 
+// Individual project row component to handle database health
+const ProjectTableRow = ({ 
+  project, 
+  onEdit, 
+  onDelete, 
+  onUpload 
+}: { 
+  project: Project; 
+  onEdit: (project: Project) => void;
+  onDelete: (project: Project) => void;
+  onUpload: (project: Project) => void;
+}) => {
+  const { data: dbHealth } = useProjectDatabaseHealth(project.key);
+
+  const getStatusForBadge = () => {
+    if (!dbHealth) return 'loading';
+    
+    // Handle all status types
+    switch (dbHealth.status) {
+      case 'active':
+        return 'active';
+      case 'checking':
+        return 'checking';
+      case 'error':
+      default:
+        return 'error';
+    }
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium">
+        {project.name}
+      </TableCell>
+      <TableCell className="text-sm text-gray-600 font-mono">
+        {project.key.substring(0, 8)}...
+      </TableCell>
+      <TableCell className="text-sm text-gray-600">
+        {project.db_config.database}
+      </TableCell>
+      <TableCell>
+        <StatusBadge status={getStatusForBadge()} />
+      </TableCell>
+      <TableCell className="text-sm text-gray-600">
+        {formatDateTime(project.created_at)}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onUpload(project)}
+          >
+            <Upload className="h-4 w-4 mr-1" />
+            Upload
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onEdit(project)}
+          >
+            <Edit className="h-4 w-4 mr-1" />
+            Edit
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onDelete(project)}
+            className="text-red-600 hover:text-red-700"
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+};
+
 const ProjectList = () => {
   const { data: projects, isLoading, error } = useProjects();
+  const { triggerBatchHealthCheck } = useRefreshDatabaseHealth();
+  
+  // Trigger initial health check when projects are loaded
+  React.useEffect(() => {
+    if (projects && projects.length > 0) {
+      triggerBatchHealthCheck();
+    }
+  }, [projects, triggerBatchHealthCheck]);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
@@ -144,52 +233,13 @@ const ProjectList = () => {
                 </TableRow>
               ) : (
                 filteredProjects.map((project) => (
-                  <TableRow key={project.key}>
-                    <TableCell className="font-medium">
-                      {project.name}
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600 font-mono">
-                      {project.key.substring(0, 8)}...
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">
-                      {project.db_config.database}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status="active" />
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">
-                      {formatDateTime(project.created_at)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setUploadProject(project)}
-                        >
-                          <Upload className="h-4 w-4 mr-1" />
-                          Upload
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditProject(project)}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setDeleteProject(project)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Delete
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <ProjectTableRow
+                    key={project.key}
+                    project={project}
+                    onEdit={setEditProject}
+                    onDelete={setDeleteProject}
+                    onUpload={setUploadProject}
+                  />
                 ))
               )}
             </TableBody>

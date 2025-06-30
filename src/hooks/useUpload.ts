@@ -11,6 +11,31 @@ export const useUploads = () => {
   });
 };
 
+export const useFileProgress = () => {
+  return useQuery({
+    queryKey: ['file-progress'],
+    queryFn: async () => {
+      // Get progress for all projects and sum up the processed files
+      const uploads = await apiClient.getUploads();
+      const projectKeys = [...new Set(uploads.map(upload => upload.project_key))];
+      
+      let totalProcessedFiles = 0;
+      for (const projectKey of projectKeys) {
+        try {
+          const progress = await apiClient.getFileProgress(projectKey);
+          totalProcessedFiles += progress.processed_files;
+        } catch (error) {
+          // If no progress data for a project, ignore it
+          console.warn(`No progress data for project ${projectKey}`);
+        }
+      }
+      
+      return { totalProcessedFiles };
+    },
+    refetchInterval: 5000,
+  });
+};
+
 export const useUploadFile = () => {
   const queryClient = useQueryClient();
 
@@ -19,6 +44,7 @@ export const useUploadFile = () => {
       apiClient.uploadFile(projectKey, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['uploads'] });
+      queryClient.invalidateQueries({ queryKey: ['file-progress'] });
       toast.success('File uploaded successfully');
     },
     onError: (error) => {

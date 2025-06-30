@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 interface StatusBadgeProps {
-  status: 'queued' | 'processing' | 'completed' | 'failed' | 'active';
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'active' | 'error' | 'loading' | 'checking';
   className?: string;
 }
 
@@ -34,6 +34,21 @@ export const StatusBadge = ({ status, className }: StatusBadgeProps) => {
         return {
           label: 'Failed',
           className: 'bg-red-100 text-red-700 border-red-200',
+        };
+      case 'error':
+        return {
+          label: 'Error',
+          className: 'bg-orange-100 text-orange-700 border-orange-200',
+        };
+      case 'loading':
+        return {
+          label: 'Loading...',
+          className: 'bg-gray-100 text-gray-700 border-gray-200',
+        };
+      case 'checking':
+        return {
+          label: 'Checking...',
+          className: 'bg-blue-100 text-blue-700 border-blue-200 animate-pulse',
         };
       default:
         return {
