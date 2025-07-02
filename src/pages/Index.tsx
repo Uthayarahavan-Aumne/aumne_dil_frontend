@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
-import { ProjectCard } from '@/components/ProjectCard';
+import { Sidebar } from '@/components/Sidebar';
+import { ProjectListItem } from '@/components/ProjectListItem';
 import { StatsCard } from '@/components/StatsCard';
 import { UploadModal } from '@/components/UploadModal';
 import { ProjectManagementModal } from '@/components/ProjectManagementModal';
@@ -20,8 +21,6 @@ import {
   Activity,
   Search,
   Filter,
-  Grid3X3,
-  List,
   Plus
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -44,7 +43,6 @@ const Index = () => {
   const [uploadProject, setUploadProject] = useState<Project | null>(null);
   const [deleteProject, setDeleteProject] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const handleUpload = (project: Project) => {
     setUploadProject(project);
@@ -102,17 +100,20 @@ const Index = () => {
 
   if (projectsError) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar onNewProject={() => setIsCreateModalOpen(true)} />
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <FolderOpen className="h-12 w-12 text-red-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Unable to connect to backend
-            </h3>
-            <p className="text-gray-500">
-              Check if the server is running on port 8000
-            </p>
+      <div className="min-h-screen bg-gray-50 flex">
+        <Sidebar />
+        <div className="flex-1">
+          <Navbar onNewProject={() => setIsCreateModalOpen(true)} />
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <FolderOpen className="h-12 w-12 text-red-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Unable to connect to backend
+              </h3>
+              <p className="text-gray-500">
+                Check if the server is running on port 8000
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -121,26 +122,29 @@ const Index = () => {
 
   if (projectsLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Navbar onNewProject={() => setIsCreateModalOpen(true)} />
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="mb-8">
-            <Skeleton className="h-8 w-80 mb-2" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-          
-          {/* Stats Grid Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-24" />
-            ))}
-          </div>
-          
-          {/* Projects Grid Skeleton */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="h-64" />
-            ))}
+      <div className="min-h-screen bg-gray-50 flex">
+        <Sidebar />
+        <div className="flex-1">
+          <Navbar onNewProject={() => setIsCreateModalOpen(true)} />
+          <div className="max-w-7xl mx-auto px-6 py-8">
+            <div className="mb-8">
+              <Skeleton className="h-8 w-80 mb-2" />
+              <Skeleton className="h-4 w-96" />
+            </div>
+            
+            {/* Stats Grid Skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-24" />
+              ))}
+            </div>
+            
+            {/* Projects List Skeleton */}
+            <div className="space-y-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-32" />
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -148,14 +152,16 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar onNewProject={() => setIsCreateModalOpen(true)} />
-      
-      <main className="max-w-7xl mx-auto px-6 py-8">
+    <div className="min-h-screen bg-gray-50 flex">
+      <Sidebar />
+      <div className="flex-1">
+        <Navbar onNewProject={() => setIsCreateModalOpen(true)} />
+        
+        <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            VXML Processing Dashboard
+            Dashboard
           </h1>
           <p className="text-gray-600">
             Manage your voice menu analysis projects and monitor processing status
@@ -191,39 +197,15 @@ const Index = () => {
                   Manage All
                 </Button>
               </Link>
-              
-              
-              <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                  className="px-3"
-                >
-                  <Grid3X3 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                  className="px-3"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Projects Grid */}
+        {/* Projects List */}
         {filteredProjects.length > 0 ? (
-          <div className={
-            viewMode === 'grid' 
-              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              : "space-y-4"
-          }>
+          <div className="space-y-2">
             {filteredProjects.map((project) => (
-              <ProjectCard
+              <ProjectListItem
                 key={project.key}
                 project={project}
                 onUpload={() => handleUpload(project)}
@@ -252,7 +234,8 @@ const Index = () => {
             )}
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       {/* Modals */}
       <ProjectManagementModal
