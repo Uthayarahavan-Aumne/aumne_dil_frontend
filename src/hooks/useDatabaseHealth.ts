@@ -55,7 +55,9 @@ export const useDatabaseHealthSummary = () => {
       
       // Get all individual project health data from cache
       const queryCache = queryClient.getQueryCache();
-      const healthQueries = queryCache.findAll(['project-database-health']);
+      const healthQueries = queryCache.findAll({ 
+        predicate: (query) => query.queryKey[0] === 'project-database-health' 
+      });
       
       let totalDatabases = 0;
       let activeDatabases = 0;
@@ -183,6 +185,7 @@ export const useProjectDatabaseHealth = (projectKey: string) => {
       console.log(`[Health Check] Starting health check for ${projectKey} - status: checking`);
       
       let result = await apiClient.getProjectDatabaseHealth(projectKey);
+      console.log(`[Health Check] Raw API response for ${projectKey}:`, JSON.stringify(result, null, 2));
       let retryCount = 0;
       const maxRetries = 3;
       
