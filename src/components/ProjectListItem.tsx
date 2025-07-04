@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { ProgressBar } from '@/components/ui/progress-bar';
-import { Upload, Settings, Database, Calendar, Trash2, FileText } from 'lucide-react';
+import { Upload, Settings, Database, Calendar, FileText } from 'lucide-react';
 import { Project } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { useProjectProgress } from '@/hooks/useProjectProgress';
@@ -134,16 +134,6 @@ export const ProjectListItem: React.FC<ProjectListItemProps> = ({
               Manage
             </Button>
             
-            {onDelete && (
-              <Button 
-                onClick={onDelete}
-                variant="outline" 
-                size="sm"
-                className="text-red-600 hover:text-red-700 hover:border-red-300"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            )}
           </div>
         </div>
       </div>

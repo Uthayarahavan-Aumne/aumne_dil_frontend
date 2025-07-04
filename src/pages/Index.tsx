@@ -1,12 +1,10 @@
-
 import React, { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
-import { Sidebar } from '@/components/Sidebar';
+import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { ProjectListItem } from '@/components/ProjectListItem';
 import { StatsCard } from '@/components/StatsCard';
 import { UploadModal } from '@/components/UploadModal';
 import { ProjectManagementModal } from '@/components/ProjectManagementModal';
-import { DeleteProjectDialog } from '@/components/DeleteProjectDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -41,7 +39,6 @@ const Index = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [manageProject, setManageProject] = useState<Project | null>(null);
   const [uploadProject, setUploadProject] = useState<Project | null>(null);
-  const [deleteProject, setDeleteProject] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleUpload = (project: Project) => {
@@ -53,9 +50,6 @@ const Index = () => {
     setManageProject(project);
   };
 
-  const handleDelete = (project: Project) => {
-    setDeleteProject(project);
-  };
 
   const filteredProjects = projects?.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -101,7 +95,7 @@ const Index = () => {
   if (projectsError) {
     return (
       <div className="min-h-screen bg-gray-50 flex">
-        <Sidebar />
+        <ProjectSidebar onNewProject={() => setIsCreateModalOpen(true)} />
         <div className="flex-1">
           <Navbar onNewProject={() => setIsCreateModalOpen(true)} />
           <div className="flex items-center justify-center h-96">
@@ -123,7 +117,7 @@ const Index = () => {
   if (projectsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex">
-        <Sidebar />
+        <ProjectSidebar onNewProject={() => setIsCreateModalOpen(true)} />
         <div className="flex-1">
           <Navbar onNewProject={() => setIsCreateModalOpen(true)} />
           <div className="max-w-7xl mx-auto px-6 py-8">
@@ -153,7 +147,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar />
+      <ProjectSidebar onNewProject={() => setIsCreateModalOpen(true)} />
       <div className="flex-1">
         <Navbar onNewProject={() => setIsCreateModalOpen(true)} />
         
@@ -210,7 +204,6 @@ const Index = () => {
                 project={project}
                 onUpload={() => handleUpload(project)}
                 onManage={() => handleManage(project)}
-                onDelete={() => handleDelete(project)}
               />
             ))}
           </div>
@@ -257,11 +250,6 @@ const Index = () => {
         projectKey={uploadProject?.key}
       />
 
-      <DeleteProjectDialog
-        isOpen={!!deleteProject}
-        onClose={() => setDeleteProject(null)}
-        project={deleteProject}
-      />
     </div>
   );
 };

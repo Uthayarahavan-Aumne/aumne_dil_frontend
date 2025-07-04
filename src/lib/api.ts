@@ -81,13 +81,18 @@ class ApiClient {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      // Handle empty responses (like DELETE operations)
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const text = await response.text();
-        return text ? JSON.parse(text) : undefined as T;
+      // Always try to parse as JSON first for API responses
+      const text = await response.text();
+      console.log(`API response for ${endpoint}:`, { status: response.status, text: text.substring(0, 200) });
+      
+      if (text) {
+        try {
+          return JSON.parse(text);
+        } catch (parseError) {
+          console.error(`JSON parse error for ${endpoint}:`, parseError);
+          return undefined as T;
+        }
       } else {
-        // For void responses or empty bodies, return undefined
         return undefined as T;
       }
     } catch (error) {
