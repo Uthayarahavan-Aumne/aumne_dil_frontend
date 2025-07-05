@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { ProjectSidebar } from '@/components/ProjectSidebar';
 import { Navbar } from '@/components/Navbar';
 import { ProjectManagementModal } from '@/components/ProjectManagementModal';
@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProjects } from '@/hooks/useProjects';
 import { useProjectDatabaseHealth } from '@/hooks/useDatabaseHealth';
+import { apiClient } from '@/lib/api';
 import { 
   FolderOpen, 
   Settings,
@@ -20,11 +21,13 @@ import {
   Trash2,
   TestTube,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  ArrowRight
 } from 'lucide-react';
 
 const ProjectSettings = () => {
   const { projectKey } = useParams<{ projectKey: string }>();
+  const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
@@ -37,9 +40,8 @@ const ProjectSettings = () => {
   const [formData, setFormData] = useState({
     name: project?.name || '',
     description: project?.description || '',
-    host: project?.db_config.host || '',
-    port: project?.db_config.port || 7687,
-    username: project?.db_config.username || '',
+    uri: project?.db_config.uri || '',
+    user: project?.db_config.user || '',
     password: '',
     database: project?.db_config.database || ''
   });
@@ -49,9 +51,8 @@ const ProjectSettings = () => {
       setFormData({
         name: project.name,
         description: project.description || '',
-        host: project.db_config.host,
-        port: project.db_config.port,
-        username: project.db_config.username,
+        uri: project.db_config.uri,
+        user: project.db_config.user,
         password: '',
         database: project.db_config.database
       });
@@ -65,14 +66,30 @@ const ProjectSettings = () => {
     }));
   };
 
-  const handleSave = () => {
-    // TODO: Implement save logic
-    console.log('Saving project settings:', formData);
+  const handleSave = async () => {
+    if (!project) return;
+    
+    try {
+      const updateData = {
+        name: formData.name,
+        description: formData.description,
+        db_config: {
+          uri: formData.uri,
+          user: formData.user,
+          password: formData.password || project.db_config.password,
+          database: formData.database
+        }
+      };
+      
+      await apiClient.updateProject(project.key, updateData);
+      // TODO: Show success message
+    } catch (error) {
+      // TODO: Show error message
+    }
   };
 
   const handleTestConnection = () => {
     // TODO: Implement test connection logic
-    console.log('Testing database connection');
   };
 
   const handleDeleteProject = () => {
@@ -130,9 +147,13 @@ const ProjectSettings = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               {project.name} - Settings
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 mb-2">
               Configure project settings and database connection
             </p>
+            <div className="text-sm text-gray-500 space-y-1">
+              <p>Created by: {project.userid || 'Unknown'}</p>
+              <p>Last updated: {project.updated_at ? new Date(project.updated_at).toLocaleString() : 'Not available'}</p>
+            </div>
           </div>
 
           <div className="space-y-8">
@@ -198,46 +219,41 @@ const ProjectSettings = () => {
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <Label htmlFor="host">Host</Label>
+                  <Label htmlFor="uri">Connection URI</Label>
                   <Input
-                    id="host"
-                    value={formData.host}
-                    onChange={(e) => handleInputChange('host', e.target.value)}
-                    placeholder="localhost"
+                    id="uri"
+                    value={formData.uri}
+                    onChange={(e) => handleInputChange('uri', e.target.value)}
+                    placeholder="bolt://localhost:7687"
                   />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Neo4j connection URI (e.g., bolt://localhost:7687)
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="user">Username</Label>
+                    <Input
+                      id="user"
+                      value={formData.user}
+                      onChange={(e) => handleInputChange('user', e.target.value)}
+                      placeholder="neo4j"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => handleInputChange('password', e.target.value)}
+                      placeholder="Enter password (leave empty to keep current)"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <Label htmlFor="port">Port</Label>
-                  <Input
-                    id="port"
-                    type="number"
-                    value={formData.port}
-                    onChange={(e) => handleInputChange('port', parseInt(e.target.value))}
-                    placeholder="7687"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    value={formData.username}
-                    onChange={(e) => handleInputChange('username', e.target.value)}
-                    placeholder="neo4j"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => handleInputChange('password', e.target.value)}
-                    placeholder="Enter password"
-                  />
-                </div>
-                <div className="md:col-span-2">
                   <Label htmlFor="database">Database Name</Label>
                   <Input
                     id="database"
@@ -264,7 +280,7 @@ const ProjectSettings = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Actions</h3>
-                  <p className="text-sm text-gray-500">Save changes or manage project</p>
+                  <p className="text-sm text-gray-500">Save changes or navigate to next stage</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -273,6 +289,14 @@ const ProjectSettings = () => {
                   >
                     <Save className="h-4 w-4 mr-2" />
                     Save Changes
+                  </Button>
+                  <Button
+                    onClick={() => navigate(`/projects/${projectKey}/data-input`)}
+                    variant="outline"
+                    className="border-green-500 text-green-600 hover:bg-green-50"
+                  >
+                    Next: Data Input
+                    <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>
               </div>

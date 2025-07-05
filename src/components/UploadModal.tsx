@@ -32,10 +32,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, proje
 
   // Update selectedProjectKey when projectKey prop changes
   useEffect(() => {
-    console.log('UploadModal projectKey prop:', projectKey);
     if (projectKey) {
       setSelectedProjectKey(projectKey);
-      console.log('Set selectedProjectKey to:', projectKey);
     }
   }, [projectKey]);
 
@@ -62,22 +60,18 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, proje
     setDragActive(false);
     
     const files = Array.from(e.dataTransfer.files);
-    console.log('Dropped files:', files.map(f => ({ name: f.name, size: f.size, type: f.type })));
     const validFiles = files.filter(file => 
-      file.name.endsWith('.vxml') || file.name.endsWith('.zip')
+      file.name.endsWith('.zip')
     );
-    console.log('Valid files after filtering:', validFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
     setSelectedFiles(validFiles);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      console.log('Selected files:', files.map(f => ({ name: f.name, size: f.size, type: f.type })));
       const validFiles = files.filter(file => 
-        file.name.endsWith('.vxml') || file.name.endsWith('.zip')
+        file.name.endsWith('.zip')
       );
-      console.log('Valid files after filtering:', validFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
       setSelectedFiles(validFiles);
     }
   };
@@ -97,7 +91,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, proje
       setUploadStatus('success');
     } catch (error) {
       setUploadStatus('error');
-      console.error('Upload failed:', error);
     }
   };
 
@@ -125,10 +118,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, proje
       <DialogContent className="max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl border-0">
         <DialogHeader className="pb-4">
           <DialogTitle className="text-lg font-semibold text-gray-900">
-            Upload VXML Files
+            Upload ZIP Files
           </DialogTitle>
           <p className="text-sm text-gray-500 mt-1">
-            Upload your VXML or ZIP files for processing
+            Upload your ZIP files containing VXML for processing
           </p>
         </DialogHeader>
 
@@ -211,13 +204,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, proje
                   or drag and drop
                 </p>
                 <p className="text-xs text-gray-400">
-                  Only .vxml and .zip files are supported
+                  Only .zip files are supported
                 </p>
                 <input
                   ref={fileInputRef}
                   type="file"
                   multiple
-                  accept=".vxml,.zip"
+                  accept=".zip"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
@@ -261,7 +254,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, proje
             </Button>
             <Button 
               onClick={() => {
-                console.log('Upload button clicked. Project key:', selectedProjectKey, 'Files count:', selectedFiles.length);
                 handleUpload();
               }} 
               className="flex-1 bg-blue-600 hover:bg-blue-700"

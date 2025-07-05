@@ -9,7 +9,8 @@ import {
   Plus,
   ChevronDown,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Database
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useProjects } from '@/hooks/useProjects';
@@ -44,8 +45,9 @@ const ProjectTreeItem: React.FC<ProjectTreeItemProps> = ({
   
   const menuItems = [
     { name: 'Overview', path: `/projects/${project.key}`, icon: Home },
-    { name: 'Files', path: `/projects/${project.key}/files`, icon: FileText },
-    { name: 'Status', path: `/projects/${project.key}/status`, icon: Activity },
+    { name: 'Data Input', path: `/projects/${project.key}/data-input`, icon: FileText },
+    { name: 'Data Processing', path: `/projects/${project.key}/data-processing`, icon: Activity },
+    { name: 'KB Configuration', path: `/projects/${project.key}/kb-configuration`, icon: Database },
     { name: 'Settings', path: `/projects/${project.key}/settings`, icon: Settings },
   ];
 

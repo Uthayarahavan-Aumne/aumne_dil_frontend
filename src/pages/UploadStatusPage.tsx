@@ -23,7 +23,7 @@ import { formatDateTime } from '@/lib/utils';
 import { STATUS_PAGE_CONFIG } from '@/lib/config';
 
 interface UploadStatusPageProps {
-  projectKey?: string;
+  projectKey: string;
 }
 
 export const UploadStatusPage: React.FC<UploadStatusPageProps> = ({ projectKey }) => {

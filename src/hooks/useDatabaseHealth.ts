@@ -29,7 +29,6 @@ export const useDatabaseHealth = () => {
         exact: true 
       });
       
-      console.log('[Batch Health] Invalidated summary cache after batch update');
       
       return results;
     },
@@ -51,7 +50,6 @@ export const useDatabaseHealthSummary = () => {
   return useQuery({
     queryKey: ['database-health-summary-computed'],
     queryFn: () => {
-      console.log('[Summary] Computing database health summary...');
       
       // Get all individual project health data from cache
       const queryCache = queryClient.getQueryCache();
@@ -68,7 +66,6 @@ export const useDatabaseHealthSummary = () => {
         const data = query.state.data as DatabaseHealth | undefined;
         if (data) {
           totalDatabases++;
-          console.log(`[Summary] Project ${data.project_key}: ${data.status}`);
           
           switch (data.status) {
             case 'active':
@@ -82,7 +79,6 @@ export const useDatabaseHealthSummary = () => {
               break;
             default:
               // Fallback for any unexpected status
-              console.log(`[Summary] Unknown status ${data.status}, counting as error`);
               errorDatabases++;
               break;
           }
@@ -96,7 +92,6 @@ export const useDatabaseHealthSummary = () => {
         checking_databases: checkingDatabases,
       };
       
-      console.log('[Summary] Final summary:', summary);
       return summary;
     },
     staleTime: 0, // Always recompute when requested
@@ -134,17 +129,14 @@ const isConnectionError = (status: DatabaseStatus, errorMessage?: string): boole
 
 // Simplified categorization: maps to 'active', 'error', or preserves 'checking'
 const categorizeStatusFromError = (status: DatabaseStatus, errorMessage?: string): DatabaseStatus => {
-  console.log(`[Status Categorization] Original: ${status}, Error: "${errorMessage || 'none'}"`);
   
   // If status is already active, keep it active
   if (status === 'active') {
-    console.log(`[Status Categorization] Keeping as: active`);
     return 'active';
   }
   
   // If status is checking, preserve it (used during retry process)
   if (status === 'checking') {
-    console.log(`[Status Categorization] Keeping as: checking`);
     return 'checking';
   }
   
@@ -154,7 +146,6 @@ const categorizeStatusFromError = (status: DatabaseStatus, errorMessage?: string
   // - Unknown errors
   // - Inactive status
   // - Any other error condition
-  console.log(`[Status Categorization] Mapping to: error (was ${status})`);
   return 'error';
 };
 
@@ -182,10 +173,8 @@ export const useProjectDatabaseHealth = (projectKey: string) => {
         exact: true 
       });
       
-      console.log(`[Health Check] Starting health check for ${projectKey} - status: checking`);
       
       let result = await apiClient.getProjectDatabaseHealth(projectKey);
-      console.log(`[Health Check] Raw API response for ${projectKey}:`, JSON.stringify(result, null, 2));
       let retryCount = 0;
       const maxRetries = 3;
       
@@ -198,12 +187,10 @@ export const useProjectDatabaseHealth = (projectKey: string) => {
           break;
         }
         
-        console.log(`[Health Check] Connection issue detected (attempt ${retryCount + 1}/${maxRetries}): ${result.error_message}`);
         
         if (retryCount < maxRetries - 1) {
           // Wait before retry (exponential backoff: 2s, 4s, 8s)
           const waitTime = Math.pow(2, retryCount + 1) * 1000;
-          console.log(`[Health Check] Retrying in ${waitTime/1000}s...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           
           // Retry the API call
@@ -211,7 +198,6 @@ export const useProjectDatabaseHealth = (projectKey: string) => {
           retryCount++;
         } else {
           // Max retries reached, still connection issue - mark as error
-          console.log(`[Health Check] Max retries reached, marking as error`);
           break;
         }
       }
@@ -223,7 +209,6 @@ export const useProjectDatabaseHealth = (projectKey: string) => {
         status: finalStatus
       };
       
-      console.log(`[Health Check] Final result for ${projectKey}: ${finalStatus} (original: ${result.status})`);
       
       // Always invalidate computed summary to ensure it updates
       queryClient.invalidateQueries({ 
@@ -231,7 +216,6 @@ export const useProjectDatabaseHealth = (projectKey: string) => {
         exact: true 
       });
       
-      console.log(`[Health Check] Invalidated summary cache after status update for ${projectKey}`);
       
       return resultWithFinalStatus;
     },

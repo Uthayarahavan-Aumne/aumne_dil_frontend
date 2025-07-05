@@ -8,7 +8,9 @@ import Index from "./pages/Index";
 import ProjectList from "./pages/ProjectList";
 import ProjectOverview from "./pages/ProjectOverview";
 import ProjectFiles from "./pages/ProjectFiles";
-// import ProjectStatus from "./pages/ProjectStatus";
+import ProjectDataInput from "./pages/ProjectDataInput";
+import ProjectDataProcessing from "./pages/ProjectDataProcessing";
+import ProjectKBConfiguration from "./pages/ProjectKBConfiguration";
 import ProjectSettings from "./pages/ProjectSettings";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
@@ -26,7 +28,9 @@ const App = () => (
           <Route path="/projects" element={<ProjectList />} />
           <Route path="/projects/:projectKey" element={<ProjectOverview />} />
           <Route path="/projects/:projectKey/files" element={<ProjectFiles />} />
-          {/* <Route path="/projects/:projectKey/status" element={<ProjectStatus />} /> */}
+          <Route path="/projects/:projectKey/data-input" element={<ProjectDataInput />} />
+          <Route path="/projects/:projectKey/data-processing" element={<ProjectDataProcessing />} />
+          <Route path="/projects/:projectKey/kb-configuration" element={<ProjectKBConfiguration />} />
           <Route path="/projects/:projectKey/settings" element={<ProjectSettings />} />
           <Route path="/test" element={<TestPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

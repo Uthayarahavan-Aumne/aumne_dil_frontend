@@ -46,7 +46,6 @@ const Index = () => {
   };
 
   const handleManage = (project: Project) => {
-    console.log('Managing project:', project.key);
     setManageProject(project);
   };
 

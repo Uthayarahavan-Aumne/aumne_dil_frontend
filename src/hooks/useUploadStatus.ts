@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { apiClient, UploadJob } from '@/lib/api';
 import { POLLING_CONFIG, STATUS_PAGE_CONFIG } from '@/lib/config';
 
 interface UseUploadStatusOptions {
-  projectKey?: string;
+  projectKey: string; // Now required since backend needs project-specific calls
   pollingInterval?: number;
   enableAutoRefresh?: boolean;
 }
@@ -18,7 +18,7 @@ interface UseUploadStatusReturn {
   canRefresh: boolean;
 }
 
-export const useUploadStatus = (options: UseUploadStatusOptions = {}): UseUploadStatusReturn => {
+export const useUploadStatus = (options: UseUploadStatusOptions): UseUploadStatusReturn => {
   const {
     projectKey,
     pollingInterval = STATUS_PAGE_CONFIG.AUTO_REFRESH_INTERVAL,
@@ -36,19 +36,23 @@ export const useUploadStatus = (options: UseUploadStatusOptions = {}): UseUpload
   } = useQuery({
     queryKey: ['upload-status', projectKey],
     queryFn: async () => {
-      const uploads = await apiClient.getUploads();
-      const filtered = projectKey 
-        ? uploads.filter(upload => upload.project_key === projectKey)
-        : uploads;
-      
-      // Sort by creation date, most recent first
-      return filtered.sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      try {
+        const uploads = await apiClient.getProjectFiles(projectKey);
+        if (!Array.isArray(uploads)) {
+          return [];
+        }
+        
+        // Sort by creation date, most recent first
+        return uploads.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      } catch (error) {
+        return [];
+      }
     },
     refetchInterval: enableAutoRefresh ? (data) => {
       // Smart polling: faster for active jobs, slower for idle
-      const hasActiveJobs = data?.some(job => 
+      const hasActiveJobs = Array.isArray(data) && data.some(job => 
         job.status === 'queued' || job.status === 'processing'
       );
       
@@ -109,18 +113,15 @@ export const useUploadStatus = (options: UseUploadStatusOptions = {}): UseUpload
 };
 
 // Keep the existing hook for backward compatibility
-export const useProcessingStatus = (projectKey?: string) => {
+export const useProcessingStatus = (projectKey: string) => {
   return useQuery({
     queryKey: ['processing-status', projectKey],
     queryFn: async () => {
-      const uploads = await apiClient.getUploads();
-      return projectKey 
-        ? uploads.filter(upload => upload.project_key === projectKey)
-        : uploads;
+      return await apiClient.getProjectFiles(projectKey);
     },
     refetchInterval: (data) => {
       // Faster polling if there are active processing jobs
-      const hasActiveJobs = data?.some(job => 
+      const hasActiveJobs = Array.isArray(data) && data.some(job => 
         job.status === 'queued' || job.status === 'processing'
       );
       return hasActiveJobs ? POLLING_CONFIG.ACTIVE_POLLING_INTERVAL : POLLING_CONFIG.IDLE_POLLING_INTERVAL;
@@ -128,17 +129,14 @@ export const useProcessingStatus = (projectKey?: string) => {
   });
 };
 
-export const useProcessingHistory = (projectKey?: string) => {
+export const useProcessingHistory = (projectKey: string) => {
   return useQuery({
     queryKey: ['processing-history', projectKey],
     queryFn: async () => {
-      const uploads = await apiClient.getUploads();
-      const filtered = projectKey 
-        ? uploads.filter(upload => upload.project_key === projectKey)
-        : uploads;
+      const uploads = await apiClient.getProjectFiles(projectKey);
       
       // Sort by creation date, most recent first
-      return filtered.sort((a, b) => 
+      return uploads.sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
     },

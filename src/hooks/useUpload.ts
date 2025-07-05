@@ -26,7 +26,6 @@ export const useFileProgress = () => {
           totalProcessedFiles += progress.processed_files;
         } catch (error) {
           // If no progress data for a project, ignore it
-          console.warn(`No progress data for project ${projectKey}`);
         }
       }
       
@@ -48,7 +47,6 @@ export const useUploadFile = () => {
       toast.success('File uploaded successfully');
     },
     onError: (error) => {
-      console.error('Failed to upload file:', error);
       toast.error('Failed to upload file');
     },
   });

@@ -1,9 +1,11 @@
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export interface Project {
   key: string;
   name: string;
+  description?: string;
+  userid?: string;
   db_config: {
     uri: string;
     user: string;
@@ -18,7 +20,7 @@ export interface UploadJob {
   id: string;
   project_key: string;
   file_name: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'processed' | 'failed';
   created_at: string;
   error_message?: string;
 }
@@ -35,6 +37,8 @@ export interface FileProgress {
 
 export interface CreateProjectData {
   name: string;
+  description?: string;
+  userid?: string;
   db_config: {
     uri: string;
     user: string;
@@ -65,9 +69,13 @@ export interface DatabaseHealthSummary {
 class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
+    
+    // Get token from localStorage, environment, or use demo token
+    const token = localStorage.getItem('access_token') || import.meta.env.VITE_API_TOKEN || 'demo_token';
+    
     const config: RequestInit = {
       headers: {
-        'Authorization': 'Bearer demo_token',
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
         ...options.headers,
       },
@@ -83,20 +91,17 @@ class ApiClient {
       
       // Always try to parse as JSON first for API responses
       const text = await response.text();
-      console.log(`API response for ${endpoint}:`, { status: response.status, text: text.substring(0, 200) });
       
       if (text) {
         try {
           return JSON.parse(text);
         } catch (parseError) {
-          console.error(`JSON parse error for ${endpoint}:`, parseError);
           return undefined as T;
         }
       } else {
         return undefined as T;
       }
     } catch (error) {
-      console.error(`API request failed for ${endpoint}:`, error);
       throw error;
     }
   }
@@ -139,15 +144,38 @@ class ApiClient {
     return this.request<UploadJob>('/upload', {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer demo_token',
+        'Authorization': `Bearer ${localStorage.getItem('access_token') || import.meta.env.VITE_API_TOKEN || 'demo_token'}`,
         // Don't set Content-Type for FormData
       },
       body: formData,
     });
   }
 
-  async getUploads(): Promise<UploadJob[]> {
-    return this.request<UploadJob[]>('/uploads');
+  async getProjectFiles(projectKey: string): Promise<UploadJob[]> {
+    const response = await this.request<{
+      project_key: string;
+      project_name: string;
+      total_files: number;
+      files: Array<{
+        id: number;
+        file_name: string;
+        status: string;
+        error_message?: string;
+        created_at: string;
+        updated_at: string;
+      }>;
+      status_summary: object;
+    }>(`/api/v1/projects/${projectKey}/files`);
+    
+    // Transform backend response to match frontend UploadJob interface
+    return response.files.map(file => ({
+      id: file.id.toString(),
+      project_key: projectKey,
+      file_name: file.file_name,
+      status: file.status as 'pending' | 'processing' | 'processed' | 'failed',
+      created_at: file.created_at,
+      error_message: file.error_message
+    }));
   }
 
   async getFileProgress(projectKey: string): Promise<FileProgress> {

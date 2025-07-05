@@ -61,7 +61,6 @@ export const useAggregatedFileProgress = () => {
           totalProcessingFiles += progress.processing_files;
         } catch (error) {
           // If no progress data for a project, ignore it
-          console.warn(`No progress data for project ${project.key}`);
         }
       }
       

@@ -163,7 +163,9 @@ const ProjectFiles = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
   const { data: projects, isLoading: projectsLoading } = useProjects();
-  const { data: uploadStatus, isLoading: uploadStatusLoading } = useUploadStatus();
+  const { data: uploadStatus, isLoading: uploadStatusLoading } = useUploadStatus({
+    projectKey: projectKey!
+  });
   
   const project = projects?.find(p => p.key === projectKey);
   
@@ -175,7 +177,6 @@ const ProjectFiles = () => {
 
   const handleRetry = (fileId: string) => {
     // TODO: Implement retry logic
-    console.log('Retrying file:', fileId);
   };
 
   if (projectsLoading || uploadStatusLoading) {
